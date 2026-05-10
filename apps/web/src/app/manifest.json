@@ -1,0 +1,13 @@
+{
+  "name": "PGD — Plataforma de Gestión Deportiva",
+  "short_name": "PGD",
+  "description": "Descubrí, reservá y jugá. La plataforma para el deporte amateur en Argentina.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f9fafb",
+  "theme_color": "#16a34a",
+  "icons": [
+    { "src": "/icons/icon-192x192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icons/icon-512x512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
