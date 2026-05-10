@@ -1,0 +1,35 @@
+{
+  "name": "pgd",
+  "version": "0.0.1",
+  "private": true,
+  "packageManager": "pnpm@10.33.0",
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "test": "turbo run test",
+    "test:e2e": "turbo run test:e2e",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "docker:up": "docker compose -f infra/docker/docker-compose.yml up -d",
+    "docker:down": "docker compose -f infra/docker/docker-compose.yml down",
+    "docker:logs": "docker compose -f infra/docker/docker-compose.yml logs -f",
+    "db:migrate": "turbo run db:migrate --filter=@pgd/db",
+    "db:migrate:create": "cd packages/db && pnpm prisma migrate dev --name",
+    "db:seed": "turbo run db:seed --filter=@pgd/db",
+    "db:reset": "turbo run db:reset --filter=@pgd/db",
+    "db:generate": "turbo run generate --filter=@pgd/db",
+    "db:studio": "cd packages/db && pnpm prisma studio"
+  },
+  "devDependencies": {
+    "turbo": "^2.5.3",
+    "typescript": "^5.8.3",
+    "prettier": "^3.5.3",
+    "@typescript-eslint/eslint-plugin": "^8.32.0",
+    "@typescript-eslint/parser": "^8.32.0",
+    "eslint": "^9.27.0"
+  }
+}
