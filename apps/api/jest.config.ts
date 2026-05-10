@@ -1,16 +1,22 @@
 import type { Config } from 'jest';
+import path from 'path';
+
+const root = path.resolve(__dirname, '../..');
 
 const config: Config = {
   moduleFileExtensions: ['js', 'json', 'ts'],
   rootDir: 'src',
   testRegex: '.*\\.spec\\.ts$',
-  transform: { '^.+\\.(t|j)s$': 'ts-jest' },
-  collectCoverageFrom: ['**/*.(t|j)s'],
+  transform: {
+    '^.+\\.(t|j)s$': ['ts-jest', { tsconfig: { module: 'CommonJS', moduleResolution: 'node' } }],
+  },
+  collectCoverageFrom: ['**/*.(t|j)s', '!**/*.spec.ts', '!**/index.ts'],
   coverageDirectory: '../coverage',
   testEnvironment: 'node',
   moduleNameMapper: {
-    '^@pgd/db$': '<rootDir>/../../packages/db/src/index.ts',
-    '^@pgd/shared$': '<rootDir>/../../packages/shared/src/index.ts',
+    '^(\\.{1,2}/.*)\\.js$': '$1',
+    '^@pgd/db$': `${root}/packages/db/src/index.ts`,
+    '^@pgd/shared$': `${root}/packages/shared/src/index.ts`,
   },
 };
 
