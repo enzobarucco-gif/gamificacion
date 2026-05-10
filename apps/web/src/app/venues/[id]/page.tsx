@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Spinner } from '@pgd/ui';
+import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Input, Spinner } from '@pgd/ui';
 import { apiClient, PgdApiError } from '../../../lib/api-client';
 import { useAuthStore } from '../../../stores/auth.store';
 
@@ -33,6 +33,10 @@ export default function VenueDetailPage() {
   const [selectedCampo, setSelectedCampo] = useState<string | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
   const [bookingError, setBookingError] = useState<string | null>(null);
+  const [reviewPuntaje, setReviewPuntaje] = useState(5);
+  const [reviewComentario, setReviewComentario] = useState('');
+  const [reviewError, setReviewError] = useState<string | null>(null);
+  const [reviewSuccess, setReviewSuccess] = useState(false);
 
   const { data: venue, isLoading } = useQuery<VenueDetail>({
     queryKey: ['venue', id],
@@ -49,6 +53,24 @@ export default function VenueDetailPage() {
         `/fields/${selectedCampo}/slots?from=${fromDate.toISOString()}&to=${toDate.toISOString()}`,
       ),
     enabled: !!selectedCampo,
+  });
+
+  const review = useMutation({
+    mutationFn: () =>
+      apiClient.post('/reviews', {
+        tipo_objeto: 'cancha',
+        objeto_id: id,
+        puntaje: reviewPuntaje,
+        ...(reviewComentario.trim() ? { comentario: reviewComentario.trim() } : {}),
+      }),
+    onSuccess: () => {
+      setReviewSuccess(true);
+      setReviewError(null);
+      setReviewComentario('');
+      setReviewPuntaje(5);
+      qc.invalidateQueries({ queryKey: ['venue', id] });
+    },
+    onError: (e) => { if (e instanceof PgdApiError) setReviewError(e.message); },
   });
 
   const booking = useMutation({
@@ -172,6 +194,53 @@ export default function VenueDetailPage() {
                 <p className="text-xs text-neutral-400 mt-1">{fmtFecha(r.created_at)}</p>
               </div>
             ))}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Form reseña (solo usuarios logueados) */}
+      {user && (
+        <Card>
+          <CardHeader><CardTitle>Dejá tu reseña</CardTitle></CardHeader>
+          <CardContent className="space-y-4">
+            {reviewError && (
+              <div className="rounded-md bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-700">{reviewError}</div>
+            )}
+            {reviewSuccess && (
+              <div className="rounded-md bg-green-50 border border-green-200 px-3 py-2 text-sm text-green-700">
+                ¡Reseña enviada! Gracias por tu opinión.
+              </div>
+            )}
+            {!reviewSuccess && (
+              <>
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-neutral-700">Puntaje</p>
+                  <div className="flex gap-1">
+                    {[1, 2, 3, 4, 5].map((n) => (
+                      <button
+                        key={n}
+                        type="button"
+                        onClick={() => setReviewPuntaje(n)}
+                        className={`text-2xl transition-colors ${n <= reviewPuntaje ? 'text-amber-400' : 'text-neutral-200'}`}
+                      >
+                        ★
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-neutral-700">Comentario (opcional)</p>
+                  <Input
+                    placeholder="¿Cómo fue tu experiencia?"
+                    value={reviewComentario}
+                    onChange={(e) => setReviewComentario(e.target.value)}
+                  />
+                </div>
+                <Button onClick={() => review.mutate()} disabled={review.isPending}>
+                  {review.isPending ? 'Enviando...' : 'Enviar reseña'}
+                </Button>
+              </>
+            )}
           </CardContent>
         </Card>
       )}
