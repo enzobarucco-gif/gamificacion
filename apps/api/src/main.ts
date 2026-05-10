@@ -12,6 +12,7 @@ async function bootstrap() {
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
     new FastifyAdapter({ logger: process.env['NODE_ENV'] !== 'production' }),
+    { rawBody: true },
   );
 
   app.setGlobalPrefix('api/v1');
