@@ -15,6 +15,8 @@ import { BookingsModule } from './bookings/bookings.module.js';
 import { PaymentsModule } from './payments/payments.module.js';
 import { QueueModule } from './queue/queue.module.js';
 import { MatchesModule } from './matches/matches.module.js';
+import { ChatsModule } from './chats/chats.module.js';
+import { ReviewsModule } from './reviews/reviews.module.js';
 import { JwtAuthGuard } from './common/guards/jwt.guard.js';
 import { RolesGuard } from './common/guards/roles.guard.js';
 
@@ -48,8 +50,8 @@ const envSchema = z.object({
     BookingsModule,
     PaymentsModule,
     MatchesModule,
-    // ChatsModule,        // Sprint 9
-    // ReviewsModule,      // Sprint 9
+    ChatsModule,
+    ReviewsModule,
   ],
   providers: [
     // Guards globales: JWT (todas las rutas) + Roles (decorador @Roles)
