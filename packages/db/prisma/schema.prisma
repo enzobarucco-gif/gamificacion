@@ -1,0 +1,458 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// Enums
+// ============================================================
+
+enum RolSistema {
+  jugador
+  capitan
+  cancha_admin
+  super_admin
+}
+
+enum EstadoMiembro {
+  pendiente
+  activo
+  saliente
+}
+
+enum RolEnEquipo {
+  jugador
+  capitan
+  dt
+}
+
+enum Modalidad {
+  F5
+  F6
+  F7
+  FUTSAL
+}
+
+enum EstadoSlot {
+  libre
+  reservado
+  bloqueado
+}
+
+enum EstadoPartido {
+  programado
+  jugado
+  cancelado
+}
+
+enum EstadoValidacion {
+  pendiente
+  parcial
+  validado
+  disputa
+}
+
+enum EstadoReserva {
+  pendiente
+  pagada
+  cancelada
+  no_presentado
+}
+
+enum EstadoPago {
+  iniciado
+  aprobado
+  rechazado
+  reversado
+}
+
+enum ProveedorPago {
+  mercado_pago
+  stripe
+}
+
+enum EstadoDisputa {
+  abierta
+  en_revision
+  cerrada
+}
+
+// ============================================================
+// Usuario y roles
+// ============================================================
+
+model Usuario {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email           String    @unique
+  telefono        String?
+  hashPassword    String?   @map("hash_password")
+  nombre          String
+  verificadoEmail Boolean   @default(false) @map("verificado_email")
+  verificadoTel   Boolean   @default(false) @map("verificado_tel")
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  deletedAt       DateTime? @map("deleted_at") @db.Timestamptz()
+
+  jugador         Jugador?
+  roleAssignments RoleAssignment[]
+  consentimientos Consentimiento[]
+  resenasAutor    Resena[]         @relation("AutorResena")
+  pagos           Pago[]           @relation("PagadorPago")
+  disputasAbiertas Disputa[]       @relation("DisputoAbrio")
+  disputasCerradas Disputa[]       @relation("DisputoCerro")
+  auditLogs       AuditLog[]
+  chatMensajes    ChatMensaje[]
+  participacionesCargadas  Participacion[] @relation("CargadoPor")
+  participacionesValidadas Participacion[] @relation("ValidadoPor")
+  canchasOwner    Cancha[]         @relation("OwnerCancha")
+
+  @@index([email], map: "idx_usuario_email")
+  @@map("usuario")
+}
+
+model RoleAssignment {
+  id        String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  usuarioId String     @map("usuario_id") @db.Uuid
+  rol       RolSistema
+  scopeId   String?    @map("scope_id") @db.Uuid
+  createdAt DateTime   @default(now()) @map("created_at") @db.Timestamptz()
+
+  usuario   Usuario    @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@unique([usuarioId, rol, scopeId])
+  @@index([usuarioId], map: "idx_role_user")
+  @@map("role_assignment")
+}
+
+// ============================================================
+// Jugador (extiende usuario 1:1)
+// ============================================================
+
+model Jugador {
+  id            String   @id @db.Uuid
+  posicion      String?
+  pieHabil      String?  @map("pie_habil")
+  fechaNac      DateTime? @map("fecha_nac") @db.Date
+  estaturaCm    Int?     @map("estatura_cm")
+  disponibilidad Json    @default("{}") @db.JsonB
+  fotoUrl       String?  @map("foto_url")
+  privacidad    String   @default("publico")
+  ratingActual  Decimal  @default(0) @map("rating_actual") @db.Decimal(3, 2)
+
+  usuario       Usuario  @relation(fields: [id], references: [id], onDelete: Cascade)
+  equiposMiembro EquipoMiembro[]
+  equiposCaptanea Equipo[] @relation("CapitanEquipo")
+  participaciones Participacion[]
+
+  @@map("jugador")
+}
+
+// ============================================================
+// Equipos
+// ============================================================
+
+model Equipo {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nombre     String
+  capitanId  String?   @map("capitan_id") @db.Uuid
+  avatarUrl  String?   @map("avatar_url")
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  deletedAt  DateTime? @map("deleted_at") @db.Timestamptz()
+
+  capitan    Jugador?  @relation("CapitanEquipo", fields: [capitanId], references: [id], onDelete: SetNull)
+  miembros   EquipoMiembro[]
+  partidosEquipo PartidoEquipo[]
+
+  @@map("equipo")
+}
+
+model EquipoMiembro {
+  id        String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  equipoId  String        @map("equipo_id") @db.Uuid
+  jugadorId String        @map("jugador_id") @db.Uuid
+  rol       RolEnEquipo   @default(jugador)
+  estado    EstadoMiembro @default(activo)
+  joinedAt  DateTime      @default(now()) @map("joined_at") @db.Timestamptz()
+
+  equipo    Equipo        @relation(fields: [equipoId], references: [id], onDelete: Cascade)
+  jugador   Jugador       @relation(fields: [jugadorId], references: [id], onDelete: Cascade)
+
+  @@unique([equipoId, jugadorId])
+  @@index([jugadorId], map: "idx_em_jugador")
+  @@index([equipoId], map: "idx_em_equipo")
+  @@map("equipo_miembro")
+}
+
+// ============================================================
+// Canchas y agenda
+// ============================================================
+
+model Cancha {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nombre        String
+  ubicacionName String?   @map("ubicacion_name")
+  /// geography(POINT,4326) — gestionado via $queryRaw para queries geo
+  geom          Unsupported("geography(POINT,4326)")?
+  politicas     Json      @default("{}") @db.JsonB
+  rating        Decimal   @default(0) @db.Decimal(3, 2)
+  ownerId       String?   @map("owner_id") @db.Uuid
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  deletedAt     DateTime? @map("deleted_at") @db.Timestamptz()
+
+  owner         Usuario?  @relation("OwnerCancha", fields: [ownerId], references: [id], onDelete: SetNull)
+  campos        Campo[]
+  reservas      Reserva[]
+  partidos      Partido[]
+  resenas       Resena[]  @relation("CanchaResenas")
+
+  @@index([ownerId], map: "idx_cancha_owner")
+  @@map("cancha")
+}
+
+model Campo {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  canchaId        String    @map("cancha_id") @db.Uuid
+  nombre          String?
+  modalidad       Modalidad
+  precioBaseCents Int       @map("precio_base_cents")
+  duracionMin     Int       @default(60) @map("duracion_min")
+
+  cancha          Cancha    @relation(fields: [canchaId], references: [id], onDelete: Cascade)
+  slots           AgendaSlot[]
+  partidos        Partido[]
+
+  @@index([canchaId], map: "idx_campo_cancha")
+  @@map("campo")
+}
+
+model AgendaSlot {
+  id           String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  campoId      String     @map("campo_id") @db.Uuid
+  inicio       DateTime   @db.Timestamptz()
+  fin          DateTime   @db.Timestamptz()
+  estado       EstadoSlot @default(libre)
+  precioCents  Int?       @map("precio_cents")
+  version      Int        @default(0)
+
+  campo        Campo      @relation(fields: [campoId], references: [id], onDelete: Cascade)
+  reserva      Reserva?
+
+  @@unique([campoId, inicio])
+  @@index([campoId, inicio, estado], map: "idx_slot_campo_inicio")
+  @@map("agenda_slot")
+}
+
+// ============================================================
+// Partidos
+// ============================================================
+
+model Partido {
+  id               String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  canchaId         String?          @map("cancha_id") @db.Uuid
+  campoId          String?          @map("campo_id") @db.Uuid
+  fecha            DateTime         @db.Timestamptz()
+  modalidad        Modalidad
+  estado           EstadoPartido    @default(programado)
+  estadoValidacion EstadoValidacion @default(pendiente) @map("estado_validacion")
+  createdAt        DateTime         @default(now()) @map("created_at") @db.Timestamptz()
+
+  cancha           Cancha?          @relation(fields: [canchaId], references: [id], onDelete: SetNull)
+  campo            Campo?           @relation(fields: [campoId], references: [id], onDelete: SetNull)
+  reserva          Reserva?
+  equipos          PartidoEquipo[]
+  participaciones  Participacion[]
+  disputas         Disputa[]
+
+  @@index([fecha, estado], map: "idx_partido_fecha")
+  @@map("partido")
+}
+
+model PartidoEquipo {
+  id        String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  partidoId String  @map("partido_id") @db.Uuid
+  equipoId  String? @map("equipo_id") @db.Uuid
+  esLocal   Boolean? @map("es_local")
+  goles     Int     @default(0)
+
+  partido   Partido @relation(fields: [partidoId], references: [id], onDelete: Cascade)
+  equipo    Equipo? @relation(fields: [equipoId], references: [id], onDelete: SetNull)
+
+  @@unique([partidoId, esLocal])
+  @@map("partido_equipo")
+}
+
+// ============================================================
+// Reservas
+// ============================================================
+
+model Reserva {
+  id            String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  canchaId      String?       @map("cancha_id") @db.Uuid
+  partidoId     String?       @unique @map("partido_id") @db.Uuid
+  slotId        String?       @unique @map("slot_id") @db.Uuid
+  estado        EstadoReserva @default(pendiente)
+  importeCents  Int           @map("importe_cents")
+  senaCents     Int           @default(0) @map("sena_cents")
+  feesCents     Int           @default(0) @map("fees_cents")
+  expiresAt     DateTime?     @map("expires_at") @db.Timestamptz()
+  createdAt     DateTime      @default(now()) @map("created_at") @db.Timestamptz()
+
+  cancha        Cancha?       @relation(fields: [canchaId], references: [id], onDelete: SetNull)
+  partido       Partido?      @relation(fields: [partidoId], references: [id], onDelete: Cascade)
+  slot          AgendaSlot?   @relation(fields: [slotId], references: [id], onDelete: SetNull)
+  pagos         Pago[]
+
+  @@index([estado], map: "idx_reserva_estado")
+  @@index([expiresAt, estado], map: "idx_reserva_expires")
+  @@map("reserva")
+}
+
+// ============================================================
+// Stats por jugador (PK compuesta)
+// ============================================================
+
+model Participacion {
+  partidoId    String   @map("partido_id") @db.Uuid
+  jugadorId    String   @map("jugador_id") @db.Uuid
+  minutos      Int      @default(0)
+  goles        Int      @default(0)
+  asistencias  Int      @default(0)
+  atajadas     Int      @default(0)
+  calificacion Int?
+  notas        String?
+  cargadoPorId String?  @map("cargado_por") @db.Uuid
+  validadoPorId String? @map("validado_por") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  partido      Partido  @relation(fields: [partidoId], references: [id], onDelete: Cascade)
+  jugador      Jugador  @relation(fields: [jugadorId], references: [id], onDelete: Cascade)
+  cargadoPor   Usuario? @relation("CargadoPor", fields: [cargadoPorId], references: [id])
+  validadoPor  Usuario? @relation("ValidadoPor", fields: [validadoPorId], references: [id])
+
+  @@id([partidoId, jugadorId])
+  @@map("participacion")
+}
+
+// ============================================================
+// Reseñas
+// ============================================================
+
+model Resena {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  autorId     String?  @map("autor_id") @db.Uuid
+  tipoObjeto  String   @map("tipo_objeto")
+  objetoId    String   @map("objeto_id") @db.Uuid
+  puntaje     Int?
+  comentario  String?
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  autor       Usuario? @relation("AutorResena", fields: [autorId], references: [id], onDelete: SetNull)
+  cancha      Cancha?  @relation("CanchaResenas", fields: [objetoId], references: [id], onDelete: NoAction, map: "fk_resena_cancha")
+
+  @@index([tipoObjeto, objetoId], map: "idx_resena_objeto")
+  @@map("resena")
+}
+
+// ============================================================
+// Pagos
+// ============================================================
+
+model Pago {
+  id            String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  reservaId     String        @map("reserva_id") @db.Uuid
+  proveedor     ProveedorPago
+  extPaymentId  String?       @unique @map("ext_payment_id")
+  estado        EstadoPago    @default(iniciado)
+  montoCents    Int           @map("monto_cents")
+  moneda        String        @default("ARS")
+  splitJson     Json?         @map("split_json") @db.JsonB
+  pagadorId     String?       @map("pagador_id") @db.Uuid
+  createdAt     DateTime      @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt     DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+
+  reserva       Reserva       @relation(fields: [reservaId], references: [id], onDelete: Cascade)
+  pagador       Usuario?      @relation("PagadorPago", fields: [pagadorId], references: [id])
+
+  @@index([extPaymentId], map: "idx_pago_ext")
+  @@index([reservaId], map: "idx_pago_reserva")
+  @@map("pago")
+}
+
+// ============================================================
+// Disputas
+// ============================================================
+
+model Disputa {
+  id          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  partidoId   String        @map("partido_id") @db.Uuid
+  motivo      String?
+  estado      EstadoDisputa @default(abierta)
+  abiertaPorId String?      @map("abierta_por") @db.Uuid
+  cerradaPorId String?      @map("cerrada_por") @db.Uuid
+  resolucion  String?
+  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz()
+  closedAt    DateTime?     @map("closed_at") @db.Timestamptz()
+
+  partido     Partido       @relation(fields: [partidoId], references: [id], onDelete: Cascade)
+  abiertaPor  Usuario?      @relation("DisputoAbrio", fields: [abiertaPorId], references: [id])
+  cerradaPor  Usuario?      @relation("DisputoCerro", fields: [cerradaPorId], references: [id])
+
+  @@map("disputa")
+}
+
+// ============================================================
+// Audit log y consentimientos
+// ============================================================
+
+model AuditLog {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  actorId   String?  @map("actor_id") @db.Uuid
+  objeto    String
+  objetoId  String?  @map("objeto_id") @db.Uuid
+  accion    String
+  cambio    Json?    @db.JsonB
+  ip        String?  @db.Inet
+  userAgent String?  @map("user_agent")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  actor     Usuario? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([objeto, objetoId], map: "idx_audit_objeto")
+  @@index([actorId, createdAt(sort: Desc)], map: "idx_audit_actor")
+  @@map("audit_log")
+}
+
+model Consentimiento {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  usuarioId String   @map("usuario_id") @db.Uuid
+  tipo      String
+  estado    Boolean
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+
+  usuario   Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@unique([usuarioId, tipo])
+  @@map("consentimiento")
+}
+
+// ============================================================
+// Chat
+// ============================================================
+
+model ChatMensaje {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  scopeTipo String   @map("scope_tipo")
+  scopeId   String   @map("scope_id") @db.Uuid
+  autorId   String   @map("autor_id") @db.Uuid
+  texto     String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  autor     Usuario  @relation(fields: [autorId], references: [id], onDelete: Cascade)
+
+  @@index([scopeTipo, scopeId, createdAt(sort: Desc)], map: "idx_chat_scope")
+  @@map("chat_mensaje")
+}
