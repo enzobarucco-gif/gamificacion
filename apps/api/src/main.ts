@@ -1,4 +1,5 @@
 import 'reflect-metadata';
+import * as Sentry from '@sentry/node';
 import { NestFactory } from '@nestjs/core';
 import { FastifyAdapter, type NestFastifyApplication } from '@nestjs/platform-fastify';
 import { ValidationPipe, Logger } from '@nestjs/common';
@@ -6,12 +7,29 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module.js';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter.js';
 
+const isProd = process.env['NODE_ENV'] === 'production';
+
+if (process.env['SENTRY_DSN']) {
+  Sentry.init({
+    dsn: process.env['SENTRY_DSN'],
+    environment: process.env['NODE_ENV'] ?? 'development',
+    tracesSampleRate: isProd ? 0.1 : 1.0,
+  });
+}
+
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
 
+  const pinoOptions = isProd
+    ? { level: process.env['LOG_LEVEL'] ?? 'info' }
+    : {
+        level: 'debug',
+        transport: { target: 'pino-pretty', options: { colorize: true, translateTime: 'HH:MM:ss' } },
+      };
+
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
-    new FastifyAdapter({ logger: process.env['NODE_ENV'] !== 'production' }),
+    new FastifyAdapter({ logger: pinoOptions, genReqId: () => crypto.randomUUID() }),
     { rawBody: true },
   );
 

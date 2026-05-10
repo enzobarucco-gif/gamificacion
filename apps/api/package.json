@@ -22,6 +22,7 @@
     "@nestjs/throttler": "^6.4.0",
     "@pgd/db": "workspace:*",
     "@pgd/shared": "workspace:*",
+    "@sentry/node": "^10.52.0",
     "bcrypt": "^6.0.0",
     "bullmq": "^5.38.0",
     "class-transformer": "^0.5.1",
@@ -32,6 +33,7 @@
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "pino": "^9.7.0",
+    "pino-pretty": "^13.1.3",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
     "zod": "^3.24.4"
