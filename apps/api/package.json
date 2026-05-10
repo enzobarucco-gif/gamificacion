@@ -19,6 +19,7 @@
     "@nestjs/passport": "^10.0.3",
     "@nestjs/platform-fastify": "^10.4.15",
     "@nestjs/swagger": "^7.4.2",
+    "@nestjs/terminus": "^11.1.1",
     "@nestjs/throttler": "^6.4.0",
     "@pgd/db": "workspace:*",
     "@pgd/shared": "workspace:*",

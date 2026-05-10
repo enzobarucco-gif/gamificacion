@@ -1,6 +1,7 @@
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
+  output: 'standalone',
   transpilePackages: ['@pgd/ui', '@pgd/shared'],
   experimental: {
     optimizePackageImports: ['@pgd/ui'],

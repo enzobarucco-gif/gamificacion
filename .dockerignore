@@ -1,0 +1,12 @@
+.git
+.github
+node_modules
+**/node_modules
+**/.next
+**/dist
+**/coverage
+**/.turbo
+infra/terraform
+*.md
+.env*
+!.env.example

@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { TerminusModule } from '@nestjs/terminus';
 import { z } from 'zod';
 import { DatabaseModule } from './database/database.module.js';
 import { RedisModule } from './redis/redis.module.js';
@@ -17,6 +18,7 @@ import { QueueModule } from './queue/queue.module.js';
 import { MatchesModule } from './matches/matches.module.js';
 import { ChatsModule } from './chats/chats.module.js';
 import { ReviewsModule } from './reviews/reviews.module.js';
+import { HealthModule } from './health/health.module.js';
 import { JwtAuthGuard } from './common/guards/jwt.guard.js';
 import { RolesGuard } from './common/guards/roles.guard.js';
 
@@ -38,6 +40,8 @@ const envSchema = z.object({
     ThrottlerModule.forRoot([
       { name: 'default', ttl: 60_000, limit: 100 },
     ]),
+    TerminusModule,
+    HealthModule,
     DatabaseModule,
     RedisModule,
     EmailModule,
