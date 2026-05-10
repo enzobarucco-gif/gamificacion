@@ -9,6 +9,8 @@ import { EmailModule } from './email/email.module.js';
 import { AuthModule } from './auth/auth.module.js';
 import { UsersModule } from './users/users.module.js';
 import { PlayersModule } from './players/players.module.js';
+import { TeamsModule } from './teams/teams.module.js';
+import { VenuesModule } from './venues/venues.module.js';
 import { JwtAuthGuard } from './common/guards/jwt.guard.js';
 import { RolesGuard } from './common/guards/roles.guard.js';
 
@@ -36,8 +38,8 @@ const envSchema = z.object({
     AuthModule,
     UsersModule,
     PlayersModule,
-    // TeamsModule,        // Sprint 3
-    // VenuesModule,       // Sprint 4
+    TeamsModule,
+    VenuesModule,
     // BookingsModule,     // Sprint 5
     // MatchesModule,      // Sprint 6-7
     // PaymentsModule,     // Sprint 5-6
